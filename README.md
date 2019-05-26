@@ -25,7 +25,7 @@ avg-occupants-per-house: 2.45<br/>
 %-of-age>=65: 29%<br/>
 start-at-home: <The percentage of the agents start at a building location. Rest will be starting at random street locations.><br/>
 -----------------------------------------------------------------<br/>
-<b>bias-to-stay-put</b> of an agent will be set based on the below range<br/>
+<b>bias-to-stay-put</b> of an agent will be set dynamically and randomly based on the below range<br/>
 min-bias-to-stay-put: 50 <br/>
 max-bias-to-stay-put: 100<br/>
 -----------------------------------------------------------------<br/>
