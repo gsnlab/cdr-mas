@@ -7,7 +7,7 @@ Download the Inputs zip file and the source files of the NetLogo simulation. Inp
 <br/>
 Please note that the following set of parameters can be changed based on the scenario. For the specific customization to simulate the 2018 Montecito mudslide, the following values were used for the parameters.
 <br/>
-Parameters:<br/><br/>
+<h3>Parameters:</h3><br/><br/>
 
 Interval: 5 Secs<br/>
 Start: 0 Secs<br/>
@@ -29,7 +29,7 @@ max-bias-to-stay-put: 100<br/>
 %-of-people-update: 100% <In the code the different update samples are generated for testing. Ex: 20%, 40%, 60%, 80%, 100%><br/>
 
 <br/>
-<h3>Execution</h3>
+<h3>Execution:</h3>
 <br/>
 Install the NetLogo 5.3.1 and open the Main.nlogo.
 <br/>
