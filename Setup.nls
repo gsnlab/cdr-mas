@@ -1,0 +1,139 @@
+; Copyright (C) 2019 Iranga Subasinghe, Geosensor Networks Lab @ University of Maine - All Rights Reserved
+; Email: iranga.subasinghe@maine.edu 
+; Visit https://geosensornetworks.net/
+
+extensions [
+  gis
+  table
+  nw
+]
+
+globals [observations houses-gis streams-gis areas-gis roads-gis elevation-dataset blank-dataset
+  projection nticks filename sensemodes housesize  headings time-step mouse-was-down? safe-zones
+  rate-of-random-turn boid-speed radius-angle radius-length got_to_destination
+  distances-to-safelocations list-of-damaged-nodes total-people-in-zone patches-out-of-buffer-zone patches-with-mud valid-nodes nodes-on-patch-in-safe-zone escaping-people list-of-mudslide-boundary-points]
+
+breed [houses house]
+breed [people person]
+breed [ nodes node ]
+breed [mappers mapper]
+breed[searchers searcher] 
+
+
+
+searchers-own [
+  memory               ; Stores the path from the start node to here
+  cost                 ; Stores the real cost from the start
+  total-expected-cost  ; Stores the total exepcted cost from Start to the Goal that is being computed
+  localization         ; The node where the searcher is
+  active?              ; is the seacrher active? That is, we have reached the node, but
+                       ; we must consider it because its neighbors have not been explored
+]
+
+links-own [
+  street-length
+]
+
+
+patches-own[
+  centroid? ;;is it the centroid of a building?
+  pid   ;;if it is a centroid of a building, it has an ID that represents the building
+  entrance ;;nearest vertex on road. only for centroids.
+  elevation 
+  noise?
+  noise-angle-from-house
+  patch-in-buffer-zone?
+  is-safe-location?
+]
+
+nodes-own
+[
+  myneighbors  ;;agentset of neighboring vertices
+  entrance?  ;;if it is an entrance to a building
+  test  ;;used to delete in test
+  damaged?
+  ;;the follwoing variables are used and renewed in each path-selection
+  dist  ;;distance from original point to here
+  done ;;1 if has calculated the shortest path through this point, 0 otherwise
+  lastnode ;;last node to this point in shortest path
+  valid?
+]
+
+houses-own [id group no-people is-damaged? final-state in-buffer-zone? occupancy sevierity in-event-area? is-office? max-occupants] 
+
+people-own [
+  id
+  house-id
+  is-alerted?
+  found-road?
+  response-count
+  act-time
+  act-time-count
+  x_cor
+  y_cor
+  near-by-road
+  current-location
+  mynode  ;;a vertex. where he begins his trip
+  destination  ;;the destination he wants to arrive at
+  destination-entrance  ;;the entrance of the destination on the road
+  mypath   ;;an agentset containing nodes to visit in the shortest path
+  step-in-path  ;;the number of step taking in the walk
+  last-stop ;;last destination
+  safe-location
+  is-at-safe-location?
+  stay-home?
+  choose-driving?
+  owns-car?
+  goal
+  next-junction
+  panic-level
+  cur-link
+
+ 
+  in-buffer-zone?
+
+  distance-to-goal
+ 
+  does-update?
+  does-update-80?
+  does-update-60?
+  does-update-40?
+  does-update-20?
+  does-update-10?
+  age-group
+  c-friction
+  SR
+  VR
+  ED
+  TL
+  IDD
+  PIL
+  EL
+  HL
+  direction-to-move
+  State
+  path-to-goal
+  bias-to-stay-in-shelter
+  belief-set
+  desire-set
+  intention
+  total-simulation-time
+  total-tl
+  observed-PIL
+  action
+  from-node
+  to-node
+  heading-to-end-node
+  end-node-of-link 
+  WS
+  RS
+  DS
+  moving-speed  
+  is-leader?
+  sense-mode
+  x1
+  
+  y1
+]
+
+

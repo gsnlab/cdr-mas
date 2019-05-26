@@ -1,0 +1,691 @@
+; Copyright (C) 2019 Iranga Subasinghe, Geosensor Networks Lab @ University of Maine - All Rights Reserved
+; Email: iranga.subasinghe@maine.edu 
+; Visit https://geosensornetworks.net/
+
+to update-event [file]
+ 
+ ; cp
+
+  carefully
+  [
+  set elevation-dataset gis:load-dataset file
+  ]
+  [
+    print "Simulation ended."
+    stop
+  ]
+
+  gis:set-transformation gis:envelope-of areas-gis (list -33 71 -25 30)
+
+  let sampling-method "BILINEAR"
+  gis:set-sampling-method elevation-dataset sampling-method
+
+  ;apply raster as an overlay
+  ask patches [
+
+    set elevation gis:raster-sample elevation-dataset self
+    set pcolor (min (list (elevation * 3.5) 9.9))
+   
+    if elevation >= 1
+      [
+        ask houses-on self 
+        [
+          
+          set is-damaged? true
+          set color yellow
+          
+        ]
+      ]
+    
+  ]
+  
+  ask nodes
+  [
+    if [elevation] of patch-here > 0
+    [
+      set valid? false
+    ]
+  ]
+
+  mark-patches-in-buffer-zone
+
+  set patches-with-mud patches with [ elevation > 0 ]
+  set valid-nodes nodes with [valid? = true]
+  set nodes-on-patch-in-safe-zone nodes-on patches-out-of-buffer-zone
+
+
+
+end
+
+
+to mud-flow
+
+
+  let current (ceiling timer + start)
+  
+  if current > 5800
+  [
+    stop
+  ]
+
+    if remainder (current) interval = 0
+    [
+      set filename (word "R3-7-10m_" (current ) ".00s.asc")
+
+      update-event filename
+      print filename
+    
+      
+      ifelse length(observations) = 0
+      [
+        print "No new observations found."
+      ]
+      [
+        print "Writing the observations"
+        write-to-file current
+      ]
+      
+      
+      
+      
+    ]
+
+
+  
+    
+end
+
+;BELIEFS----------------------------------------
+
+to IsEventInSR
+  
+  
+  if position (list "IsEventInSR" True) belief-set != false 
+    [
+      set belief-set remove-item ( position (list "IsEventInSR" True) belief-set) belief-set
+    ]
+    
+  if position (list "IsEventInSR" False) belief-set != false
+    [
+      set belief-set remove-item ( position (list "IsEventInSR" False) belief-set) belief-set
+    ]
+   
+  
+  
+  ifelse count patches in-radius SR with [ elevation > 0 ] > 0
+  [
+    
+    set color green   
+      
+    if state = "Unaware"
+    [
+      set state "Aware" 
+    ]  
+    
+    set belief-set fput (list "IsEventInSR" True) belief-set 
+    
+  ]
+  [    
+    set belief-set fput (list "IsEventInSR" False) belief-set 
+  ]
+  
+end
+
+to IsSurroundedByEvent
+  if position (list "IsSurroundedByEvent" True) belief-set != false
+    [
+      set belief-set remove-item ( position (list "IsSurroundedByEvent" True) belief-set) belief-set
+    ]
+  
+  if position (list "IsSurroundedByEvent" False) belief-set != false
+    [
+      set belief-set remove-item ( position (list "IsSurroundedByEvent" False) belief-set) belief-set
+    ]
+  
+  ifelse count neighbors with [ elevation > 0 ] >= 1
+  [  
+    set belief-set fput (list "IsSurroundedByEvent" True) belief-set 
+  ]
+  [    
+    set belief-set fput (list "IsSurroundedByEvent" False) belief-set 
+  ]
+  
+end
+
+to IsEventHere
+  if position (list "IsEventHere" True) belief-set != false
+    [
+      set belief-set remove-item ( position (list "IsEventHere" True) belief-set) belief-set
+    ]
+  if position (list "IsEventHere" False) belief-set != false
+    [
+      set belief-set remove-item ( position (list "IsEventHere" False) belief-set) belief-set
+    ]
+    
+  ifelse [elevation] of patch-here > 0
+  [       
+    set belief-set fput (list "IsEventHere" True) belief-set   
+  ]
+  [    
+    set belief-set fput (list "IsEventHere" False) belief-set
+  ]
+  
+  
+end
+
+to IsSeenPanicNeighbors
+  
+  ifelse count people with [PIL > 0] in-radius VR > 0
+  [
+   
+     set belief-set fput (list "IsSeenPanicNeighbors" True) belief-set   
+  ]
+  [
+    
+     set belief-set fput (list "IsSeenPanicNeighbors" False) belief-set  
+  ]
+  
+  
+  
+end
+;----------------------------------------------
+
+
+
+; AFFORDANCES----------------------------------
+
+
+to-report IsHouseAffordToStay
+  
+  if house-id != nobody and house-id != 0
+  [
+    ifelse [is-damaged?] of house house-id  = true
+    [
+      report false   
+    ]
+    [
+      report true
+    ]
+    
+  ]
+  
+  report nobody
+  
+end
+
+
+
+to-report IsRoadJunctionAffordToMove
+  
+  if count nodes-on patch-here  > 0 
+  [
+    ifelse [valid?] of (one-of nodes-on patch-here) = false
+    [
+      report false
+    ]
+    [
+      report true
+    ]
+  ]
+  
+  report nobody
+  
+end
+
+;----------------------------------------------
+
+
+to-report perceive-event  
+  
+ ;Perceive and store the beliefs
+ IsEventInSR
+ IsEventHere
+ IsSurroundedByEvent
+
+  ;Alter the internal attributes
+  
+  let obs-PIL 0
+  let closest-event-patch nobody
+  let total-patches-in-SR 0
+  
+  
+  
+  
+  if state != "Unaware"
+  [
+    carefully 
+    [     
+      set closest-event-patch min-one-of patches-with-mud in-radius SR [distance myself]  ;Get the closest event patch for determining the ED     
+      If closest-event-patch = nobody
+      [         
+        set ED 0
+      ]     
+      
+    ]
+    [
+    ]
+    
+    
+    carefully 
+    [               
+      set total-patches-in-SR count patches in-radius SR ; Total patches covered in SR           
+      set heading towards closest-event-patch - 180 
+      
+      ;set a goal if no goal is set
+      if goal = nobody or goal = 0
+      [
+     ;   set goal one-of nodes-on-patch-in-safe-zone in-cone 15 60 
+      ]
+      
+    ][]
+    carefully 
+    [    
+      set obs-PIL mean [PIL] of escaping-people in-radius VR   ;Observed average PIL of agents in the VR              
+    ][]
+    carefully 
+    [     
+      set ED distance (closest-event-patch)      ; Least event distance
+    ][set ED 0]
+    
+    carefully 
+    [  
+      set TL count patches in-radius SR with [elevation > 0] ; Size of the threat
+    ][]
+    
+    ;Calculate PIL    
+    set PIL ((ED / SR) + (TL / total-patches-in-SR) + (IDD / total-simulation-time) + obs-PIL  ) / 4
+    
+    set total-tl total-patches-in-SR
+    set observed-PIL obs-PIL
+    
+    
+   
+    
+    ;Choose desires and select an intention
+    set desire-set []
+    
+    foreach belief-set
+    [
+      if item 1 ? = True
+      [
+        set desire-set fput ? belief-set
+      ]
+    ]
+    
+    
+    if state != "Escape" 
+    [
+      ifelse (length desire-set) > 0
+      [
+        
+        let index 0
+        
+        if (length desire-set) > 1
+        [ 
+          set index random (length desire-set)
+          
+        ]  
+        
+        set intention (list (item 0  (item index desire-set)) False)
+      ]
+      [
+        set intention (list "IsEventInSR" False)
+      ]
+      
+   
+    ]
+    
+    
+    ;Create the action plan
+   
+   
+    ; Check affordance of the nearest road junction if available
+   if IsRoadJunctionAffordToMove = true and ( from-node  = nobody or from-node  = 0)
+    ;if  ( from-node  = nobody or from-node  = 0)
+    [
+      set from-node one-of nodes-on patch-here
+     
+      
+      if to-node = nobody and to-node = 0
+      [
+        move-to from-node      
+      ]
+      
+      carefully
+      [
+        if true
+        [          
+          if cur-link = nobody[ 
+            set cur-link one-of [ my-links ] of from-node    
+            
+          ]         
+          
+          ;Select the other end node
+          if [end1] of cur-link = from-node
+          [
+            set end-node-of-link [end2] of cur-link
+          ]
+          if [end2] of cur-link = from-node
+          [
+            set end-node-of-link [end1] of cur-link
+          ]          
+          
+          ; check the heading
+          set heading-to-end-node towards end-node-of-link   
+          let heading-to-goal towards goal   
+          
+          
+   
+          ifelse heading-to-end-node < heading-to-goal + 60 and heading-to-end-node > heading-to-goal - 60
+          [
+            set to-node end-node-of-link            
+          ]
+          [
+            let nextlinks [my-links] of from-node
+            set cur-link one-of nextlinks with [self != [cur-link] of myself]              
+            
+            if [end1] of cur-link = from-node
+            [
+              set end-node-of-link [end2] of cur-link
+            ]
+            if [end2] of cur-link = from-node
+            [
+              set end-node-of-link [end1] of cur-link
+            ]
+            set heading-to-end-node towards end-node-of-link   
+            set heading-to-goal towards goal   
+            ifelse heading-to-end-node < heading-to-goal + 60 and heading-to-end-node > heading-to-goal - 60
+            [              
+              set to-node end-node-of-link
+            ]
+            [
+              set to-node nobody
+              set from-node nobody              
+            ]           
+            
+          ]
+        ]
+      ]
+      [
+        ;Error handling
+      ]
+    ] 
+        
+ 
+    
+    ;Check if agent reach the to-node of the segment
+    if one-of nodes-on patch-here = to-node and to-node != nobody
+    [      
+      set from-node nobody
+      set to-node nobody
+      set cur-link nobody
+    ]
+    
+  
+    
+    ;check if agent is on current link
+    carefully
+    [
+      if (from-node != nobody and from-node != 0) and (to-node != nobody and to-node != 0) 
+      and (distance from-node + distance to-node) - [link-length] of one-of links with [(end1 = [from-node] of myself and end2 = [to-node] of myself) or (end1 = [to-node] of myself and end2 = [from-node] of myself) ] > 2
+      [        
+       set from-node nobody
+       set to-node nobody
+       set cur-link nobody
+      ]
+    ]
+    [
+    ]   
+    if (to-node != nobody and to-node != 0) and one-of nodes-on patch-here != from-node and  towards to-node = towards from-node - 180 and ( from-node != nobody and from-node != 0) 
+    [
+  
+      set from-node nobody
+      set to-node nobody
+      set cur-link nobody
+    ]    
+   
+    
+  ]
+  
+  report goal
+  
+end
+
+
+to actuate [goal-to-go]
+  
+  if action = "Move"
+  [
+    
+    ;check if the agent reach the goal    
+    ifelse goal-to-go != nobody and from-node != goal-to-go and distance goal > moving-speed
+    [
+      ifelse to-node != nobody and to-node != 0  and from-node != nobody and from-node != 0
+      [
+        set heading heading-to-end-node
+        set color yellow
+      ]
+      [       
+        set heading towards goal-to-go
+        set color green
+      ]   
+      
+      if xcor >= max-pxcor or xcor <= min-pxcor[
+        rt 180
+        set goal one-of nodes-on one-of patches-out-of-buffer-zone in-radius-nowrap 15 
+      ]
+      set state "Escape"
+      fd moving-speed  
+    ]
+    [
+      set from-node goal-to-go
+    ]
+  ]
+  
+  if HL < 0.001
+  [
+    set HL 0
+    set state "Dead"
+    set action ""
+    set does-update? false
+  ]
+  
+   
+    
+end
+
+to perceive-affordances
+
+  
+    if (house-id != 0 or house-id != nobody) and state != "escape" and state != "Unaware" 
+    [
+      set action "Move"      
+    ]
+    
+    ;Affordability of the house location and bias impact-------------------------
+    if house-id != 0 and house-id != nobody and state != "escape" and state != "Unaware" and (IsHouseAffordToStay)
+    [
+      set action "Stay-Put"
+    ]
+    
+    if house-id != 0 and house-id != nobody and state != "escape" and state != "Unaware" and (TL < bias-to-stay-in-shelter and not IsHouseAffordToStay)
+    [
+      set action "Stay-Put"
+      
+    ]
+    
+    if (house-id = 0 or house-id = nobody) and state != "escape" and state != "Unaware" 
+    [
+      set action "Move"      
+    ]
+    
+
+    
+    ;----------------------------------------------------------------------------
+    
+    if action = "Move"
+    [
+      set state "Escape"
+    ]
+    
+    if  action = "Stay-Put"
+    [
+      set state "Shelter-in-place"
+    ]
+    
+  
+  ;Check if the goal location is not safe anymore then assign a new goal
+  if action = "Move" and IsRoadJunctionAffordToMove = false
+    [
+      set from-node nobody
+      set to-node nobody
+      set cur-link nobody
+      set goal one-of nodes-on-patch-in-safe-zone in-radius-nowrap 15
+    ]
+    
+end
+
+to percieve-internals
+  
+  ;PIL and Speed
+  if action = "Move"
+  [
+    ifelse PIL < threshold-PI
+    [
+      set moving-speed  WS * EL
+    ]
+    [      
+      ifelse choose-driving? = true
+      [
+        set moving-speed  DS 
+      ]
+      [
+        set moving-speed  RS * EL
+      ]
+    ]
+  ]
+  
+  if state != "Unaware" and state != "Safe" and ED > 0
+    [
+      set IDD IDD + 1
+      
+       if EL >= 0.001     
+      [
+        set EL EL - 0.001
+      ]
+    ]    
+  
+  
+  if ED != nobody and ED = 0
+    [
+      if IDD > 0
+      [
+        set IDD 0
+      ]
+      
+      if EL < 1    
+      [
+        set EL EL + 0.001
+      ]
+    ]
+  
+  if ED != nobody and ED > 0
+    [
+      set HL ED / SR
+    ]
+  
+  
+  if ED != nobody and ED = 0 and IDD = 0 and PIL < 0.05
+  [
+    set PIL 0
+    set state "Safe"
+    set color pink
+    set action ""
+  ]
+  if ED != nobody and ED = 0 and IDD = 0 and PIL > 0.05 and state = "Safe"
+  [
+    set PIL 0
+    set state "Aware"
+    set color green
+    set action "Move"
+  ]
+  
+  
+  ;If danger again even after reaching a goal
+  if ED != nobody and ED > 0 and from-node != nobody and goal = from-node
+  [
+    let patch-list  patch-set list-of-mudslide-boundary-points 
+    
+    
+    
+    let min-boundry-patch min-one-of patch-list with [[pycor] of [patch-here] of myself =  pycor] [pxcor]
+    let max-boundry-patch max-one-of patch-list with [[pycor] of [patch-here] of myself =  pycor] [pxcor]
+    
+    set x1 min-boundry-patch
+    set y1 max-boundry-patch
+    
+    ifelse distance min-boundry-patch > distance max-boundry-patch
+    [
+      set goal one-of nodes-on-patch-in-safe-zone with [pxcor > [pxcor] of max-boundry-patch ] in-radius-nowrap 15
+    ]
+    [
+      set goal one-of nodes-on-patch-in-safe-zone with [pxcor < [pxcor] of min-boundry-patch ] in-radius-nowrap 15
+    ] 
+  ]
+  
+  if family-agents-available? = true
+  [
+    ;Family Agents
+    if house-id != 0 and house-id != nobody and is-leader? != true
+    [
+      if count people with [house-id = [house-id] of myself and age-group != "child" and is-leader? = true] > 0 ;a leader exists
+      [
+        ;override the settings
+        let leader  one-of people with [house-id = [house-id] of myself and is-leader? = true]
+        
+        if  [state] of leader != "Dead"
+        [
+          set goal [goal] of leader
+          
+          if [state] of leader = "Unaware"
+          [
+            set state "Unaware"
+            set color blue
+          ]
+          
+          if [state] of leader = "Aware" and state = "Unaware"
+          [
+            set state  "Aware"
+          ]
+          
+          
+          set WS  [WS] of leader
+          set RS  [RS] of leader
+          set DS  [DS] of leader
+          
+          set moving-speed  [moving-speed] of leader
+        ]
+      ]
+    ]
+  ]
+  
+  ;Set sense Mode
+  if state != "Dead" and state != "Unaware"
+  [    
+    set sense-mode "SAFE"
+    
+    ifelse state = "Escape" and PIL >= 0.05  and ED < 1
+    [
+      set sense-mode "DANGER"
+    ]
+    [
+      if state = "Shelter-in-place" and PIL >= 0.05 and ED < 1
+      [
+        set sense-mode "DANGER"
+      ]
+        
+    ]
+    
+  ]
+  
+end

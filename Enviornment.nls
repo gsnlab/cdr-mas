@@ -1,0 +1,329 @@
+; Copyright (C) 2019 Iranga Subasinghe, Geosensor Networks Lab @ University of Maine - All Rights Reserved
+; Email: iranga.subasinghe@maine.edu 
+; Visit https://geosensornetworks.net/
+
+__includes ["Util.nls"]
+
+to load-area
+  
+set list-of-mudslide-boundary-points []
+
+  foreach gis:feature-list-of areas-gis
+  [
+
+    print ?
+    let isFlow gis:property-value ? "POPUPINFO"
+
+    gis:set-drawing-color gray
+
+    if  isFlow != ""[
+      gis:set-drawing-color red
+    
+     ; set color red
+    ]
+
+    let centroid gis:location-of gis:centroid-of ?
+    
+    let all-vertices gis:vertex-lists-of ?
+    
+    
+    foreach item 0  all-vertices 
+    [
+      let x item 0 gis:location-of  ?
+      let y item 1 gis:location-of  ? 
+      
+      set list-of-mudslide-boundary-points fput patch x y list-of-mudslide-boundary-points
+    ]
+    
+    print list-of-mudslide-boundary-points
+
+    gis:draw ? 1
+
+  ]
+
+end
+
+
+to load-streams
+
+  foreach gis:feature-list-of streams-gis
+  [
+    gis:set-drawing-color blue
+    gis:draw ? 1
+  ]
+
+end
+
+
+to load-roads
+
+  foreach gis:feature-list-of roads-gis
+  [
+    gis:set-drawing-color blue
+    gis:draw ? 1
+  ]
+
+end
+
+
+
+to make-road-network
+
+  print "Constructing the road network.."
+  ;;create turtles representing the nodes. create links to conect them.
+  foreach gis:feature-list-of roads-gis[
+
+    foreach gis:vertex-lists-of ? ; for the road feature, get the list of vertices
+      [
+
+        let previous-node-pt nobody
+
+        foreach ?  ; for each vertex in road segment feature
+          [
+            let location gis:location-of ?
+            if not empty? location
+            [
+
+              create-nodes 1
+              [
+                set myneighbors n-of 0 turtles ;;empty
+                set xcor item 0 location
+                set ycor item 1 location
+                set size 0.2
+                set shape "circle"
+                set color brown
+                set hidden? true
+                set valid? true
+
+
+                ;; create link to previous node
+                ifelse previous-node-pt = nobody
+                  [] ; first vertex in feature
+                  [create-link-with previous-node-pt] ; create link to previous node
+                set previous-node-pt self]
+
+            ]]] ] 
+
+
+  delete-duplicates
+
+  ask nodes [set myneighbors link-neighbors set damaged? false]
+  delete-not-connected
+  ask nodes [set myneighbors link-neighbors]
+  print "DONE constucting the road network.."
+  ask links [set thickness 0.1 set color orange]
+
+
+end
+
+
+to load-houses
+  
+  let cnt 0
+  foreach gis:feature-list-of houses-gis
+  [
+    let cat gis:property-value ? "SYMBOLID"
+    let location gis:location-of (first (first (gis:vertex-lists-of ?)))
+    
+   
+    
+    if not empty? location
+      [
+        
+        set cnt 1 + cnt
+        
+        create-houses 1 [
+          
+          set id who
+          set size housesize
+          set group random length(sensemodes)
+          set xcor item 0 location
+          set ycor item 1 location
+          set occupancy 0
+
+          set final-state cat
+          set is-damaged? false
+          set in-buffer-zone? true
+          set color gray
+          
+          set sevierity cat
+           
+          if cat = 3 [
+            ;set color green
+          ]
+          if cat = 2 [
+           ; set color yellow
+          ]
+          if cat = 1 [
+           ; set color red
+          ]
+
+          ;Load people in the houses
+          if not empty? location
+          [
+             ;load-people-new who list item 0 location item 1 location random 15 random 0 3 no-of-people-in-house
+          ]
+
+        ]
+
+      ]
+
+  ]
+
+
+end
+
+to add-buffer-zone
+  let house-list-in-buffer []
+  foreach gis:feature-list-of areas-gis
+  [
+    let name gis:property-value ? "NAME"
+    if name = "Montecito Creek Debris Flow"
+    [
+      ask patches gis:intersecting ?
+      [
+        let relationship gis:relationship-of ? self
+
+        if relationship = "212101212"
+        [
+            set patch-in-buffer-zone? true
+            ask people-on self
+            [
+              set in-buffer-zone? false
+            ]
+
+          ask patches in-radius-nowrap buffer-zone with [elevation <= 0]
+          [
+            set patch-in-buffer-zone? true
+            ask people-on self
+            [
+              set in-buffer-zone? true
+            ]
+
+            let relationship-outer gis:relationship-of ? self
+
+            if relationship-outer = "FF2FF1212" ; patch is outside the original vector feature
+            [
+             set patch-in-buffer-zone? true
+             set pcolor white
+             ask people-on self
+             [
+               set in-buffer-zone? true
+             ]
+
+            ]
+          ]
+        ]
+      ]
+    ]
+
+  ]
+
+  set patches-out-of-buffer-zone patches with [ patch-in-buffer-zone? = 0 ]
+end
+
+
+
+to remove-houses-out-of-zone
+  ask houses-on patches with [patch-in-buffer-zone? != true]
+  [
+     set in-buffer-zone? false
+    ; die
+  ]
+end
+
+to mark-houses-damaged 
+  let no-of-damaged-houses count houses-on patches with [patch-in-buffer-zone? = true]
+  
+  ask n-of ((% * no-of-damaged-houses) * 0.01) houses-on patches with [patch-in-buffer-zone? = true]
+  [
+     set is-damaged? true
+     set color yellow
+  ] 
+
+
+
+end
+
+to mark-offices-damaged 
+  let no-of-damaged-offices count houses with [is-office? = true and occupancy > 0]
+  
+  ask n-of ((% * no-of-damaged-offices) * 0.01) houses with [is-office? = true and occupancy > 0]
+  [
+     set is-damaged? true
+     set color yellow
+  ] 
+
+
+
+end
+
+to mark-people-move
+  
+  ask n-of ((% * count people) * 0.01) people
+  [
+     set action  "Move"
+     set state "Escape"
+  ] 
+
+
+
+end 
+
+
+to mark-houses-as-offices
+  
+  
+  let n (30 * count houses with [in-buffer-zone? = true]) * 0.01
+  
+  ask n-of (n) houses with [in-buffer-zone? = true]
+  [
+     set is-office? true
+     set color red     
+     
+  ] 
+  
+  
+  ask houses with [ is-office? = true]
+  [
+    set max-occupants random No-of-people / n
+    
+    if count houses with [max-occupants = 0 and is-office? = true] = 0
+      [
+        ask one-of houses with [is-office? = true]
+        [
+          
+          set max-occupants No-of-people - sum [max-occupants] of houses with [is-office? = true]
+          
+        ]
+      ]
+  ]
+end
+
+to add-safe-locations
+  
+  foreach safe-zones
+  [
+      ask patch item 0 ? item 1 ? [ set pcolor blue  ]
+  ]
+end
+
+to set-next-road-segment [r n] ;Person
+
+  ifelse goal = n
+  [
+    set is-alerted? false
+    set is-at-safe-location? true
+    set color green
+  ]
+  [
+    set found-road? true
+  ]
+
+
+  set cur-link r
+  move-to n
+  ifelse n = [end1] of r [set to-node [end2] of r] [set to-node [end1] of r]
+  face to-node
+
+end

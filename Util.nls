@@ -1,0 +1,298 @@
+; Copyright (C) 2019 Iranga Subasinghe, Geosensor Networks Lab @ University of Maine - All Rights Reserved
+; Email: iranga.subasinghe@maine.edu 
+; Visit https://geosensornetworks.net/
+
+to delete-duplicates
+  ask nodes [
+    if count nodes-here > 1[
+      ask other nodes-here [
+
+        ask myself [create-links-with other [link-neighbors] of myself]
+        die]
+    ]
+  ]
+
+end
+
+to delete-not-connected
+  ask nodes [set test 0]
+  ask one-of nodes [set test 1]
+  repeat 500 [
+    ask nodes with [test = 1]
+    [ask myneighbors [set test 1]]]
+  ask nodes with [test = 0][die]
+
+end
+
+
+
+to-report meters-per-patch ;; maybe should be in gis: extension?
+  let world gis:world-envelope ; [ minimum-x maximum-x minimum-y maximum-y ]
+  let x-meters-per-patch (item 1 world - item 0 world) / (max-pxcor - min-pxcor)
+  let y-meters-per-patch (item 3 world - item 2 world) / (max-pycor - min-pycor)
+  report mean list x-meters-per-patch y-meters-per-patch
+end
+
+
+
+
+
+to mark-patches-in-buffer-zone
+  let house-list-in-buffer []
+  foreach gis:feature-list-of areas-gis
+  [
+    let name gis:property-value ? "NAME"
+    if name = "Montecito Creek Debris Flow"
+    [
+      ask patches gis:intersecting ?
+      [
+        let relationship gis:relationship-of ? self
+
+        if relationship = "212101212"
+        [
+            set patch-in-buffer-zone? true
+
+          ask patches in-radius-nowrap buffer-zone with [elevation <= 0]
+          [
+            set patch-in-buffer-zone? true
+            let relationship-outer gis:relationship-of ? self
+
+            if relationship-outer = "FF2FF1212" ; patch is outside the original vector feature
+            [
+             set patch-in-buffer-zone? true
+            ]
+          ]
+        ]
+      ]
+    ]
+    set patches-out-of-buffer-zone patches with [ patch-in-buffer-zone? = 0 ]
+  ]
+end
+
+
+to-report count-children
+  let cnt count people with [age-group = "child"]
+  report cnt
+end
+
+
+to-report count-adults
+  let cnt count people with [age-group = "adult"]
+  report cnt
+end
+
+to-report count-seniors
+  let cnt count people with [age-group = "senior"]
+  report cnt
+end
+
+
+to-report count-people-can-drive
+  let cnt count people with [choose-driving? = true]
+  report cnt
+end
+
+
+to write-to-file [step]
+  set observations reverse observations
+
+  file-open (word "Test_Step_" step ".csv")
+  foreach observations [file-print ? file-flush]
+  file-close
+  set observations []
+end
+
+
+to add-observations [step]
+
+  if does-update? and state != "Dead" and state != "Unaware"
+  [
+
+    let observation (word id "," sense-mode "," xcor "," ycor "," step "," does-update? "," does-update-80? "," does-update-60? "," does-update-40? "," does-update-20? "," does-update-10?)
+    ;let observation (word id "," sense-mode "," get-gis-coordinates self "," step )
+    set observations fput observation observations
+  ]
+
+end
+
+
+to write-house-locations
+
+  carefully[
+    file-delete ("Locations.csv")
+  ]
+  [
+    write error-message
+  ]
+
+  file-open ("Locations.csv")
+
+  ask houses
+    [
+
+      ;file-print (word xcor ", " ycor) file-flush
+      ;file-print (word get-gis-coordinates self "," sevierity) file-flush
+      file-print (word  xcor ", " ycor "," sevierity) file-flush
+    ]
+
+  file-close
+
+end
+
+to write-house-locations-in-buffer
+
+  carefully[
+    file-delete ("Houses_in_buffer.csv")
+  ]
+  [
+    write error-message
+  ]
+
+  file-open ("Houses_in_buffer.csv")
+
+  ask houses with [in-buffer-zone? = true and ycor >= -17]
+    [
+
+      ;file-print (word xcor ", " ycor) file-flush
+      ;file-print (word get-gis-coordinates self "," sevierity) file-flush
+      file-print (word  xcor ", " ycor ) file-flush
+    ]
+
+  file-close
+
+end
+
+to mark-houses-in-event
+
+
+
+  foreach gis:feature-list-of areas-gis
+  [
+    let name gis:property-value ? "NAME"
+    if name = "Montecito Creek Debris Flow"
+    [
+      ask patches gis:intersecting ?
+      [
+        let relationship gis:relationship-of ? self
+
+        if relationship = "212101212"
+        [
+
+          ask patches in-radius-nowrap buffer-zone with [elevation <= 0]
+          [
+
+            let relationship-outer gis:relationship-of ? self
+
+            if  relationship-outer != "FF2FF1212" ; patch is outside the original vector feature
+            [
+              set pcolor yellow + 2.5
+              
+              ask houses-on self
+              [
+                if ycor >= -17
+                [
+                  set in-event-area? true
+                ]
+              ]              
+             
+            ]
+          ]
+        ]
+      ]
+    ]
+
+  ]
+  
+
+
+end
+
+to write-houses-in-event
+
+  carefully[
+    file-delete ("Houses-in-event.csv")
+  ]
+  [
+    write error-message
+  ]
+
+  file-open ("Houses-in-event.csv")
+  
+  ask houses with [in-event-area? = true]
+  [
+    file-print (word  xcor ", " ycor) file-flush
+  ]
+
+  file-close
+end
+
+to write-damaged-houses-in-buffer
+
+  carefully[
+    file-delete ("Damaged_GT.csv")
+  ]
+  [
+    write error-message
+  ]
+
+  file-open ("Damaged_GT.csv")
+  
+  ask houses with [in-buffer-zone? = true and (sevierity = 1 or sevierity = 2)  ]
+  [
+    file-print (word  xcor ", " ycor) file-flush
+  ]
+
+  file-close
+end
+
+to write-buffer-zone
+
+  carefully[
+    file-delete ("Buffer.csv")
+  ]
+  [
+    write error-message
+  ]
+
+  file-open ("Buffer.csv")
+
+
+  foreach gis:feature-list-of areas-gis
+  [
+    let name gis:property-value ? "NAME"
+    if name = "Montecito Creek Debris Flow"
+    [
+      ask patches gis:intersecting ?
+      [
+        let relationship gis:relationship-of ? self
+
+        if relationship = "212101212"
+        [
+
+          ask patches in-radius-nowrap buffer-zone with [elevation <= 0]
+          [
+            
+
+            let relationship-outer gis:relationship-of ? self
+            ;set pcolor yellow + 2.5
+
+            if  relationship-outer != "FF2FF1212" ; patch is outside the original vector feature
+            [
+              ;set pcolor yellow + 2.5
+              
+             ;file-print (word  pxcor ", " pycor) file-flush
+            ]
+          ]
+        ]
+      ]
+    ]
+
+  ]
+  
+  file-close
+
+end
+
+to-report random-between-inclusive [ a b ]
+    report a + random (b - a + 1) 
+end 

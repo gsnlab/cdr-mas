@@ -1,0 +1,572 @@
+; Copyright (C) 2019 Iranga Subasinghe, Geosensor Networks Lab @ University of Maine - All Rights Reserved
+; Email: iranga.subasinghe@maine.edu 
+; Visit https://geosensornetworks.net/
+
+to load-people [n]
+  
+  let start-at-home_temp (start-at-home) * 0.01
+      let stay-put_temp (100 - evacuation-%) * 0.01
+      let evacuation_temp (evacuation-%) * 0.01
+      
+  let located-on-roads_temp (100 - start-at-home) * 0.01 
+  
+  ;For those who evacuate
+  ;let %-of-people-know-safe-locations-temp (%-of-people-know-safe-locations) * 0.01  
+  ;let %-of-people-dont-know-safe-locations-temp (100 - %-of-people-know-safe-locations) * 0.01  
+
+  
+    
+
+;STARTED AT A HOME LOCATION -------------------------------------------------------------------
+create-people (start-at-home_temp  * evacuation_temp * n);* %-of-people-know-safe-locations-temp * n)
+[
+
+  let hs one-of houses with [occupancy < ceiling avg-occupants-per-house and in-buffer-zone? = true]; and patch-in-buffer-zone? = true]
+
+    ifelse hs != nobody
+    [
+      ask hs
+      [
+        set occupancy 1 + occupancy
+      ]
+
+
+      set id who
+      set xcor [xcor] of hs
+      set ycor [ycor] of hs
+
+      set house-id [id] of hs
+
+      set stay-home? false
+     
+    
+      set cur-link nobody
+      
+     ; set to-node one-of nodes-on one-of patches in-radius-nowrap 15 with [ patch-in-buffer-zone? = 0 ]
+
+ 
+      
+     
+      set in-buffer-zone? true
+
+      setxy [xcor] of hs  [ycor] of hs
+      
+     ; set goal min-one-of (patches with [is-safe-location? = true]) [distance myself]
+      
+     
+    ]
+    [
+      die
+    ]
+    
+  
+]
+
+
+create-people 0;(start-at-home_temp * evacuation_temp * %-of-people-dont-know-safe-locations-temp * n)
+[
+
+  let hs one-of houses with [occupancy < ceiling avg-occupants-per-house and in-buffer-zone? = true]
+
+  ifelse hs != nobody
+    [
+      ask hs
+      [
+        set occupancy 1 + occupancy
+      ]
+      set id who
+      set xcor [xcor] of hs
+      set ycor [ycor] of hs
+
+      set house-id [id] of hs
+
+      set stay-home? false
+
+
+      set cur-link nobody
+ 
+      set in-buffer-zone? true
+
+      setxy [xcor] of hs  [ycor] of hs
+      
+   
+      
+
+    ]
+    [
+      die
+    ]
+]
+
+
+create-people (start-at-home_temp * stay-put_temp * n)
+[
+
+    let hs one-of houses with [occupancy < ceiling avg-occupants-per-house and in-buffer-zone? = true]; and patch-in-buffer-zone? = true]
+ 
+    ifelse hs != nobody
+    [
+
+      ask hs
+      [
+        set occupancy 1 + occupancy
+      ]
+      set id who
+      set xcor [xcor] of hs
+      set ycor [ycor] of hs
+
+      set house-id [id] of hs
+      set stay-home? true
+      set goal nobody
+      ;let r one-of links
+      ;set-next-road-segment r [end1] of r
+      set cur-link nobody
+    ;  set to-node one-of nodes-on one-of patches in-radius-nowrap 15 with [ patch-in-buffer-zone? = 0 ]
+
+      set in-buffer-zone? true
+
+      setxy [xcor] of hs  [ycor] of hs
+      
+    
+      
+     
+      
+      
+    ]
+    [
+      die
+    ]
+]
+
+
+; Set age groups for people start at home ands et bias to stay put
+ask people
+[
+  let hs house-id
+  
+   ;Check the age group distribution
+      let cnt-children count-children
+      let cnt-adults count-adults
+      let cnt-seniors count-seniors
+      
+      
+      let all-people count people
+      
+      if cnt-children < all-people * %-of-age<18 * 0.01
+      [
+        if count people with [house-id = hs and (age-group = "adult" or age-group = "senior")] != 0
+        [
+          set age-group "child"        
+        ]
+   
+      ]
+      
+      if cnt-adults < all-people * %-of-age<=64-and-age>=18 * 0.01 and age-group != "child"
+      [        
+          set age-group "adult"                
+        
+      ]
+       
+      if cnt-seniors < all-people * %-of-age>=65 * 0.01 and age-group != "adult"
+      [
+          set age-group "senior"
+        
+      ]
+      
+      set bias-to-stay-in-shelter random-between-inclusive Min-bias-to-stay-put Max-bias-to-stay-put
+      
+]
+
+
+
+
+;--------------------------------------------------------------------------------------------------------------
+
+
+;STARTED AT A ROAD LOCATION -------------------------------------------------------------------
+
+
+
+
+create-people (located-on-roads_temp * n);%-of-people-know-safe-locations-temp)  * n
+[
+
+    set id who
+
+    set house-id nobody
+
+
+    set stay-home? false
+ 
+
+
+    set cur-link nobody
+    set to-node nobody
+    let r nobody
+    ask one-of patches with [patch-in-buffer-zone? = true and count nodes-on self > 0]
+    [
+      set r one-of links with [end1 = one-of nodes-on myself or end2 = one-of nodes-on myself]
+    ]
+    set-next-road-segment r [end1] of r
+    set in-buffer-zone? true
+  ;  set goal min-one-of (patches with [is-safe-location? = true]) [distance myself]
+
+]
+
+
+
+
+create-people (located-on-roads_temp * 0);  %-of-people-dont-know-safe-locations-temp) * n
+[
+
+    set id who
+    set stay-home? false
+
+    set cur-link nobody
+    set to-node nobody
+    let r nobody
+
+
+    ask one-of  patches  with [patch-in-buffer-zone? = true and count nodes-on self > 0]
+    [
+      set r one-of links with [end1 = one-of nodes-on myself or end2 = one-of nodes-on myself]
+    ]
+    set-next-road-segment r [end1] of r
+    set in-buffer-zone? true
+
+]
+
+
+; Set age groups for people start at roads
+ask people
+[
+  let hs house-id
+  
+   ;Check the age group distribution
+      let cnt-children count-children
+      let cnt-adults count-adults
+      let cnt-seniors count-seniors
+      
+      
+      let all-people count people
+      
+      if cnt-children < all-people * %-of-age<18 * 0.01 and age-group = 0
+      [
+        
+          set age-group "child"        
+        
+   
+      ]
+      
+      if cnt-adults < all-people * %-of-age<=64-and-age>=18 * 0.01 and age-group != "child"
+      [        
+          set age-group "adult"                
+        
+      ]
+       
+      if cnt-seniors < all-people * %-of-age>=65 * 0.01 and age-group != "adult"
+      [
+          set age-group "senior"
+        
+      ]
+      
+]
+
+
+
+
+;-----------------------------------------------------------------------------------------------------
+
+ask people
+[
+  set color blue
+  set SR 1 + random Max-SR 
+  set VR 1 + random Max-VR
+  set WS  random-float (Max-WS / 36) * 5 / meters-per-patch  
+  set RS  random-float (Max-RS / 36) * 5 / meters-per-patch  
+  set DS  random-float (Max-DS / 36) * 5  / meters-per-patch  
+  set PIL 0
+  set TL 0
+  set EL 1
+  set HL 1
+  set ED nobody
+  set State "Unaware"
+  set belief-set []
+  set heading 0
+  set total-tl 0
+  set moving-speed 0
+  set sense-mode "SAFE"
+  
+  ifelse age-group != "adult"
+  [
+    set c-friction random-float 1
+  ]
+  [
+    set c-friction 1
+  ]
+  
+  if age-group != "child" and house-id != nobody and house-id !=  0
+  [
+    if count people with [house-id = [house-id] of myself and age-group != "child" and is-leader? = true] = 0
+    [
+      set is-leader? true
+      
+     
+      
+    ]
+  ]
+  
+  if count people with [house-id = [house-id] of myself and age-group != "child" and is-leader? = true] > 0 ;a leader exists
+    [
+      
+      let leader  one-of people with [house-id = [house-id] of myself and is-leader? = true] 
+      
+       ask leader [
+        set WS WS * [c-friction] of myself
+        set RS RS * [c-friction] of myself
+      ]
+    ]
+  
+  let patch-list  patch-set list-of-mudslide-boundary-points   
+  
+  let min-boundry-patch min-one-of patch-list with [[pycor] of [patch-here] of myself =  pycor] [pxcor]
+  let max-boundry-patch max-one-of patch-list with [[pycor] of [patch-here] of myself =  pycor] [pxcor]
+  
+  set x1 min-boundry-patch
+  set y1 max-boundry-patch
+  
+  ifelse distance min-boundry-patch > distance max-boundry-patch
+  [
+    set goal one-of nodes-on-patch-in-safe-zone with [pxcor > [pxcor] of max-boundry-patch ] in-radius-nowrap 15
+  ]
+  [
+    set goal one-of nodes-on-patch-in-safe-zone with [pxcor < [pxcor] of min-boundry-patch ] in-radius-nowrap 15
+  ]
+
+  
+  set to-node nobody
+]
+
+ask n-of ((%-of-people-can-drive * count people with [house-id != nobody]) * 0.01) people with [house-id != nobody and age-group != "child"]
+[
+  set choose-driving? true
+]
+
+ask n-of ((%-of-people-update * count people) * 0.01) people 
+[
+  set does-update? true
+]
+
+
+
+ask people [
+  if does-update? = 0
+  [
+    set does-update? false
+  ]
+  
+  set does-update-80? false
+  set does-update-60? false
+  set does-update-40? false
+  set does-update-20? false
+  set does-update-10? false
+]
+
+
+;FOR DIFFERENT PU% - NOT USED FOR MODELING BUT FOR PROCESSING LATER FROM THE SAME DATASET
+ask n-of ((80 * count people) * 0.01) people 
+[
+  set does-update-80? true
+]
+
+ask n-of ((60 * count people) * 0.01) people 
+[
+  set does-update-60? true
+]
+
+ask n-of ((40 * count people) * 0.01) people 
+[
+  set does-update-40? true
+]
+
+ask n-of ((20 * count people) * 0.01) people 
+[
+  set does-update-20? true
+]
+
+ask n-of ((10 * count people) * 0.01) people 
+[
+  set does-update-10? true
+]
+
+end
+
+
+
+to populate-offices [n]
+  
+  let start-at-home_temp (start-at-home) * 0.01
+  let stay-put_temp (100 - evacuation-%) * 0.01
+  
+  
+  create-people (start-at-home_temp * stay-put_temp * n)
+  [
+    
+    
+    
+    let hs one-of houses with [occupancy <= ceiling max-occupants and is-office? = true]; and patch-in-buffer-zone? = true]
+    
+    ifelse hs != nobody
+    [
+      
+      ask hs
+      [
+        set occupancy 1 + occupancy
+      ]
+      set id who
+      set xcor [xcor] of hs
+      set ycor [ycor] of hs
+      
+      set house-id [id] of hs
+      set stay-home? true
+      set goal nobody
+      set cur-link nobody      
+      set in-buffer-zone? true
+      
+      setxy [xcor] of hs  [ycor] of hs
+          
+      
+    ]
+    [
+      die
+    ]
+  ]
+  
+  
+  ask people
+  [
+    set color blue
+    set SR 1 + random Max-SR 
+    set VR 1 + random Max-VR
+    set WS  random-float (Max-WS / 36) * 5 / meters-per-patch  
+    set RS  random-float (Max-RS / 36) * 5 / meters-per-patch  
+    set DS  random-float (Max-DS / 36) * 5  / meters-per-patch  
+    set PIL 0
+    set TL 0
+    set EL 1
+    set HL 1
+    set ED nobody
+    set State "Unaware"
+    set belief-set []
+    set heading 0
+    set total-tl 0
+    set moving-speed 0
+    set sense-mode "SAFE"
+    
+    ifelse age-group != "adult"
+    [
+      set c-friction random-float 1
+    ]
+    [
+      set c-friction 1
+    ]
+    
+    if age-group != "child" and house-id != nobody and house-id !=  0
+    [
+      if count people with [house-id = [house-id] of myself and age-group != "child" and is-leader? = true] = 0
+      [
+        set is-leader? true
+        
+        
+        
+      ]
+    ]
+    
+    if count people with [house-id = [house-id] of myself and age-group != "child" and is-leader? = true] > 0 ;a leader exists
+    [
+      
+      let leader  one-of people with [house-id = [house-id] of myself and is-leader? = true] 
+      
+      ask leader [
+        set WS WS * [c-friction] of myself
+        set RS RS * [c-friction] of myself
+      ]
+    ]
+    
+    let patch-list  patch-set list-of-mudslide-boundary-points   
+    
+    let min-boundry-patch min-one-of patch-list with [[pycor] of [patch-here] of myself =  pycor] [pxcor]
+    let max-boundry-patch max-one-of patch-list with [[pycor] of [patch-here] of myself =  pycor] [pxcor]
+    
+    set x1 min-boundry-patch
+    set y1 max-boundry-patch
+    
+    ifelse distance min-boundry-patch > distance max-boundry-patch
+    [
+      set goal one-of nodes-on-patch-in-safe-zone with [pxcor > [pxcor] of max-boundry-patch ] in-radius-nowrap 15
+    ]
+    [
+      set goal one-of nodes-on-patch-in-safe-zone with [pxcor < [pxcor] of min-boundry-patch ] in-radius-nowrap 15
+    ]
+    
+    
+    set to-node nobody
+  ]
+  
+  ask n-of ((%-of-people-can-drive * count people with [house-id != nobody]) * 0.01) people with [house-id != nobody and age-group != "child"]
+[
+  set choose-driving? true
+]
+
+ask n-of ((%-of-people-update * count people) * 0.01) people 
+[
+  set does-update? true
+]
+
+
+
+ask people [
+  if does-update? = 0
+  [
+    set does-update? false
+  ]
+  
+  set does-update-80? false
+  set does-update-60? false
+  set does-update-40? false
+  set does-update-20? false
+  set does-update-10? false
+]
+
+
+;FOR DIFFERENT PU% - NOT USED FOR MODELING BUT FOR PROCESSING LATER FROM THE SAME DATASET
+ask n-of ((80 * count people) * 0.01) people 
+[
+  set does-update-80? true
+]
+
+ask n-of ((60 * count people) * 0.01) people 
+[
+  set does-update-60? true
+]
+
+ask n-of ((40 * count people) * 0.01) people 
+[
+  set does-update-40? true
+]
+
+ask n-of ((20 * count people) * 0.01) people 
+[
+  set does-update-20? true
+]
+
+ask n-of ((10 * count people) * 0.01) people 
+[
+  set does-update-10? true
+]
+  
+end
+
+
+
+
