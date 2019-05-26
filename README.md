@@ -1,19 +1,19 @@
 # CDR-MAS
 
-Parameters:
+Parameters:<br/><br/>
 
 Interval: 5 Secs<br/>
 Start: 0 Secs<br/>
-Buffer-Zone (BZR): 4 patches
-Max-SR: 4 patches
-Max-VR: 3 patches
-Max-WS: 4 kmph
-Max-RS: 8 kmph
-Max-DS: 25 kmph
-Threshold-PI: 0.5
-avg-occupants-per-house: 2.45
-%-of-people-can-drive: 20%
-%-of-age<18: 18%
-%-of-age<=64-and-age>=18:53%
-%-of-age>=65: 29%
+Buffer-Zone (BZR): 4 patches<br/>
+Max-SR: 4 patches<br/>
+Max-VR: 3 patches<br/>
+Max-WS: 4 kmph<br/>
+Max-RS: 8 kmph<br/>
+Max-DS: 25 kmph<br/>
+Threshold-PI: 0.5<br/>
+avg-occupants-per-house: 2.45<br/>
+%-of-people-can-drive: 20%<br/>
+%-of-age<18: 18%<br/>
+%-of-age<=64-and-age>=18:53%<br/>
+%-of-age>=65: 29%<br/>
 
