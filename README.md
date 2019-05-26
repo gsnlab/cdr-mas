@@ -1,4 +1,6 @@
 # CDR-MAS
+<br/>
+Download the Inputs zip file and the source files of the NetLogo simulation. Inputs zip file contains the input shapefiles to create the NetLogo enviornment and the raster files (ascii format) to recreate the event in the NetLogo world. <br/>
 
 Parameters:<br/><br/>
 
