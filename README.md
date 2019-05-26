@@ -29,7 +29,7 @@ max-bias-to-stay-put: 100<br/>
 %-of-people-update: 100% <In the code the different update samples are generated for testing. Ex: 20%, 40%, 60%, 80%, 100%><br/>
 
 <br/>
-Execution
+<h3>Execution</h3>
 <br/>
 Install the NetLogo 5.3.1 and open the Main.nlogo.
 <br/>
