@@ -23,9 +23,12 @@ avg-occupants-per-house: 2.45<br/>
 %-of-age<18: 18%<br/>
 %-of-age<=64-and-age>=18: 53%<br/>
 %-of-age>=65: 29%<br/>
-start-at-home: <The percentage of the agents start at a building location. Rest will be starting at random street locations.>
+start-at-home: <The percentage of the agents start at a building location. Rest will be starting at random street locations.><br/>
+-----------------------------------------------------------------<br/>
+<b>bias-to-stay-put</b> of an agent will be set based on the below range<br/>
 min-bias-to-stay-put: 50 <br/>
 max-bias-to-stay-put: 100<br/>
+-----------------------------------------------------------------<br/>
 %-of-people-update: 100% <In the code the different update samples are generated for testing. Ex: 20%, 40%, 60%, 80%, 100%><br/>
 
 <br/>
