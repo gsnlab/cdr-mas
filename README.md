@@ -34,7 +34,7 @@ max-bias-to-stay-put: 100<br/>
 <br/>
 <h3>Execution:</h3>
 <br/>
-Install the NetLogo 5.3.1 and open the Main.nlogo.
+Install NetLogo 5.3.1 and open the Main.nlogo.
 <br/>
 Press "Setup" button. Once the setup completes, press "Simulate" button. If the rendering takes longer time, disable "view updates".
 <br/>
