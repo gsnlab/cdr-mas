@@ -39,3 +39,7 @@ Install NetLogo 5.3.1 and open the Main.nlogo.
 Press "Setup" button. Once the setup completes, press "Simulate" button. If the rendering takes longer time, disable "view updates".
 <br/>
 For each time step, the simulation creates output stream in a format as CSV.
+
+<br/>
+<br/>
+Contact us: iranga.subasinghe@maine.edu
